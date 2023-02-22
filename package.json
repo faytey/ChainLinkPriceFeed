@@ -1,0 +1,28 @@
+{
+  "name": "pricefeed",
+  "version": "1.0.0",
+  "description": "A price feed for  token swap contract",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/www.github.com/faytey.git"
+  },
+  "author": "Faith M. Roberts",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/www.github.com/faytey/issues"
+  },
+  "homepage": "https://github.com/www.github.com/faytey#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^2.0.1",
+    "hardhat": "^2.12.7"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "^0.6.1",
+    "@openzeppelin/contracts": "^4.8.1",
+    "dotenv": "^16.0.3"
+  }
+}
