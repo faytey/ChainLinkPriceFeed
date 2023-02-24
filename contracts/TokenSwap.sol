@@ -8,16 +8,20 @@ contract TokenSwap {
     address public owner;
     address internal client1;
     address internal client2;
-    IERC20 public tokenA;
-    IERC20 public tokenB;
+    IToken DAI = IToken(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IToken ADEX = IToken(0xADE00C28244d5CE17D72E40330B1c318cD12B7c3);
 
     /**
-     * Network: GOERLI
+     * Network: ETHEREUM
      * Aggregator: DAI/USD
-     * Address: 0x0d79df66BE487753B02D015Fb622DED7f0E9798d
-     * Aggregator: LINK/USD
-     * Address: 0x48731cF7e84dc94C5f84577882c14Be11a5B7456
+     * Address: 0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9
+     * Aggregator: ADDEX/USD
+     * Address: 0x231e764B44b2C1b7Ca171fa8021A24ed520Cde10
      * Decimals: 8
+     * Contract: DAI
+     * Address: 0x6B175474E89094C44Da98b954EedeAC495271d0F
+     * Contract: ADDEX
+     * Address: 0xADE00C28244d5CE17D72E40330B1c318cD12B7c3
      */
     constructor() {
         owner = msg.sender;
@@ -28,11 +32,11 @@ contract TokenSwap {
         address _quote,
         uint8 _decimals
     ) public view returns (int256) {
-        // require(
-        //     _decimals > uint8(0) && _decimals <= uint8(18),
-        //     "Invalid _decimals"
-        // );
-        // int256 decimals = int256(10**uint256(_decimals));
+        require(
+            _decimals > uint8(0) && _decimals <= uint8(18),
+            "Invalid _decimals"
+        );
+        int256 decimals = int256(10**uint256(_decimals));
         (, int256 basePrice, , , ) = AggregatorV3Interface(_base)
             .latestRoundData();
         uint8 baseDecimals = AggregatorV3Interface(_base).decimals();
@@ -44,6 +48,22 @@ contract TokenSwap {
         quotePrice = scalePrice(quotePrice, quoteDecimals, _decimals);
 
         return basePrice / quotePrice;
+    }
+
+    function daiToAdex() public view returns (int256) {
+        (, int256 basePrice, , , ) = AggregatorV3Interface(
+            0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9
+        ).latestRoundData();
+
+        return basePrice;
+    }
+
+    function adexToDai() public view returns (int256) {
+        (, int256 basePrice, , , ) = AggregatorV3Interface(
+            0x231e764B44b2C1b7Ca171fa8021A24ed520Cde10
+        ).latestRoundData();
+
+        return basePrice;
     }
 
     function scalePrice(
@@ -59,60 +79,40 @@ contract TokenSwap {
         return _price;
     }
 
-    function swap(
-        address _tokenA,
-        address _tokenB,
-        uint256 _amountA,
-        // uint256 _amountB,
-        uint8 _decimals
-    ) public {
-        tokenA = IERC20(_tokenA);
-        tokenB = IERC20(_tokenB);
-        client1 = msg.sender;
-        client2 = address(this);
+    function swapDaiToAdex(int256 _daiQuantity) external {
+        address recipient = msg.sender;
+        uint256 daiQuantity = uint256(_daiQuantity);
         require(
-            msg.sender == client1 || msg.sender == client2,
-            "Not authorized"
+            daiQuantity <= DAI.balanceOf(msg.sender),
+            "Insufficient Dai Amount"
         );
+        // DAI.transferFrom(recipient, address(this), daiQuantity);
+        int256 Dai = daiToAdex();
+        int256 Adex = adexToDai();
+        uint256 swapAmount = (uint256(Dai) * daiQuantity) / uint256(Adex);
+        uint256 balance = ADEX.balanceOf(address(this));
         require(
-            tokenA.allowance(client1, client2) >= _amountA,
-            "Token A allowance too low"
+            balance >= swapAmount,
+            "Not enough funds, please try again later"
         );
-        require(
-            tokenB.allowance(client1, client2) >= _amountA,
-            "Token B allowance too low"
-        );
-
-        uint256 _price = uint256(getDerivedPrice(_tokenA, _tokenB, _decimals));
-
-        uint256 _amountB = _amountA * _price;
-        require(msg.sender == address(0), "Address no address(0)");
-        //transfer TokenSwap
-        //tokenA client1, amount 1 -> client2.  needs to be in same order as function
-        _safeTransferFrom(tokenA, client1, client2, _amountA);
-        //tokenB, client2, amount 2 -> client1.  needs to be in same order as function
-        _safeTransfer(tokenB, client1, _amountB);
+        ADEX.transfer(recipient, swapAmount);
     }
 
-    function _safeTransferFrom(
-        IERC20 token,
-        address sender,
-        address recipient,
-        uint256 amount
-    ) private {
-        bool sent = token.transferFrom(sender, recipient, amount);
-        require(sent, "Token transfer failed");
-    }
-
-    function _safeTransfer(
-        IERC20 token,
-        address recipient,
-        uint256 amount
-    ) private {
+    function swapAdexToDai(int256 _adexQuantity) external {
+        address recipient = msg.sender;
+        uint256 adexQuantity = uint256(_adexQuantity);
         require(
-            amount >= token.balanceOf(address(this)),
-            "Please try again later"
+            adexQuantity <= ADEX.balanceOf(msg.sender),
+            "Insufficient Dai Amount"
         );
-        token.transfer(recipient, amount);
+        int256 Dai = daiToAdex();
+        int256 Adex = adexToDai();
+        uint256 swapAmount = (uint256(Adex) * adexQuantity) / uint256(Dai);
+        uint256 balance = DAI.balanceOf(address(this));
+        require(
+            balance >= swapAmount,
+            "Not enough funds, please try again later"
+        );
+        DAI.transfer(recipient, swapAmount);
     }
 }
